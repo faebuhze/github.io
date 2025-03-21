@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ALLTAGSSCRIPTS</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* Hide scrollbar while keeping scrolling functional */
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+            overflow-y: auto;
+        }
+
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+
+        body {
+            font-family: 'Aktiv Grotesk', sans-serif;
+            background-color: #ffffff;
+            overflow-x: hidden;
+        }
+        
+        header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            background-color: white;
+            border: 2px solid #000;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: border 0.3s ease, height 0.3s ease;
+        }
+        
+        .header-content {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column; /* Allow for text wrapping */
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        
+        h1 {
+            font-size: 6rem;
+            letter-spacing: 127px; /* Initial value, will be adjusted dynamically by JS */
+            font-weight: bold;
+            -webkit-text-stroke-width: 0.5px;
+            -webkit-text-stroke-color: yellow;
+            color: rgb(0, 0, 0);
+            text-shadow: 0 0 1px yellow;
+            white-space: nowrap;
+            width: 100%;
+            transform-origin: center;
+            position: relative;
+            margin-left: 0; /* Will be adjusted dynamically by JS */
+            text-align: center;
+        }
+        
+        /* Mobile styles for h1 */
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 4rem;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 3rem;
+            }
+        }
+        
+        .h1-line {
+            display: inline-block;
+            width: 100%;
+        }
+        
+        .spacer {
+            width: 100%;
+            height: 100vh;
+        }
+        
+        .video-container {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr); /* Maximum 4 columns */
+            gap: 2px;
+            margin: -34px auto 0;
+            padding: 0 10px;
+        }
+        
+        .video-item {
+            aspect-ratio: 9/16;
+            border: 1px solid #ccc;
+            overflow: hidden;
+            position: relative;
+            will-change: transform;
+            transform: translateZ(0);
+            cursor: pointer;
+        }
+        
+        .video-item video {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            will-change: opacity;
+            transition: opacity 0.3s ease;
+            backface-visibility: hidden; /* Performance optimization */
+        }
+        
+        .normal-video {
+            opacity: 1;
+            z-index: 2;
+        }
+        
+        .ascii-video {
+            opacity: 0;
+            z-index: 1;
+        }
+        
+        /* Responsive grid adjustments */
+        @media (max-width: 1200px) {
+            .video-container {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+        
+        @media (max-width: 900px) {
+            .video-container {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        
+        @media (max-width: 600px) {
+            .video-container {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body class="hide-scrollbar">
+    <header id="stickyHeader">
+        <div class="header-content" id="headerContent">
+            <h1 id="headerText">ALLTAGSSCRIPTS</h1>
+        </div>
+    </header>
+    
+    <div class="spacer" id="headerSpacer"></div>
+    
+    <div class="video-container" id="videoGrid">
+        <!-- Videos will be dynamically added here -->
+    </div>
+
+    <script>
+        // Header animation variables
+        const header = document.getElementById('stickyHeader');
+        const headerContent = document.getElementById('headerContent');
+        const headerText = document.getElementById('headerText');
+        const spacer = document.getElementById('headerSpacer');
+        
+        // Original Text
+        const originalText = "ALLTAGSSCRIPTS";
+        const splitPoint = 7; // Split after "ALLTAGS"
+        
+        // Header animation constants
+        const MIN_HEADER_HEIGHT = 80; // final header height in px
+        const INITIAL_HEADER_HEIGHT = window.innerHeight; // full viewport height
+        
+        // Breakpoint for text wrapping (in pixels)
+        const TEXT_WRAP_BREAKPOINT = 768;
+        
+        // Debounce function for performance optimization
+        function debounce(func, wait) {
+            let timeout;
+            return function() {
+                const context = this;
+                const args = arguments;
+                clearTimeout(timeout);
+                timeout = setTimeout(() => {
+                    func.apply(context, args);
+                }, wait);
+            };
+        }
+        
+        // Function to check if we need to wrap the text
+        function shouldWrapText(screenWidth, letterSpacing) {
+            // Calculate the width the text would take with current letter spacing
+            const textWithoutSpacing = originalText.length * parseInt(getComputedStyle(headerText).fontSize);
+            const spacingWidth = (originalText.length - 1) * letterSpacing;
+            const totalWidth = textWithoutSpacing + spacingWidth;
+            
+            // If the text would be wider than the screen with current letter spacing
+            return totalWidth > screenWidth * 1.2; // Add some buffer
+        }
+        
+        // Function to make text stretch from edge to edge
+        function makeTextStretchEdgeToEdge() {
+            // Your reference screen size is 63cm x 34cm (approximately 2480px x 1340px)
+            const referenceWidth = 2480; // This is an approximate pixel equivalent of your 63cm screen
+            const baseLetterSpacing = 127; // The letter-spacing you want at your reference screen width
+            
+            // Get current viewport width
+            const viewportWidth = window.innerWidth;
+            
+            // Check if we should use wrapped text on small screens
+            const shouldWrap = viewportWidth < TEXT_WRAP_BREAKPOINT;
+            
+            // Adjust headerText content based on wrapping decision
+            if (shouldWrap) {
+                // Split the text into two lines
+                if (headerText.childElementCount === 0) { // Only if not already split
+                    headerText.innerHTML = '';
+                    
+                    const line1 = document.createElement('div');
+                    line1.className = 'h1-line';
+                    line1.textContent = originalText.substring(0, splitPoint);
+                    
+                    const line2 = document.createElement('div');
+                    line2.className = 'h1-line';
+                    line2.textContent = originalText.substring(splitPoint);
+                    
+                    headerText.appendChild(line1);
+                    headerText.appendChild(line2);
+                }
+                
+                // Small screens get minimal letter spacing that still looks good
+                const minLetterSpacing = Math.max(viewportWidth / 25, 10); // Ensure minimum spacing
+                headerText.style.letterSpacing = minLetterSpacing + 'px';
+                headerText.style.marginLeft = '0';
+                
+                // Store original font size and letter spacing for animations
+                headerText.dataset.originalFontSize = getComputedStyle(headerText).fontSize;
+                headerText.dataset.letterSpacing = minLetterSpacing;
+                
+                // Adjust header height for two lines
+                const newInitialHeight = INITIAL_HEADER_HEIGHT * 1.2;
+                header.style.height = newInitialHeight + 'px';
+                spacer.style.height = newInitialHeight + 'px';
+                
+                return minLetterSpacing;
+            } else {
+                // Reset to single line if was previously wrapped
+                if (headerText.childElementCount > 0) {
+                    headerText.innerHTML = originalText;
+                }
+                
+                // Calculate the proportional letter spacing based on screen width
+                let proportionalLetterSpacing = (viewportWidth / referenceWidth) * baseLetterSpacing;
+                
+                // If the calculated letter spacing would cause text to overflow
+                if (shouldWrapText(viewportWidth, proportionalLetterSpacing)) {
+                    // Calculate maximum letter spacing that fits the screen width
+                    const fontSize = parseInt(getComputedStyle(headerText).fontSize);
+                    const charsWidth = fontSize * originalText.length;
+                    const maxAvailableSpace = viewportWidth - fontSize;
+                    const maxLetterSpacing = Math.floor((maxAvailableSpace - charsWidth) / (originalText.length - 1));
+                    
+                    // Use the smaller of the two to ensure it fits
+                    proportionalLetterSpacing = Math.min(proportionalLetterSpacing, maxLetterSpacing);
+                }
+                
+                // Apply the calculated letter spacing
+                headerText.style.letterSpacing = proportionalLetterSpacing + 'px';
+                
+                // Store original font size and letter spacing for animations
+                headerText.dataset.originalFontSize = getComputedStyle(headerText).fontSize;
+                headerText.dataset.letterSpacing = proportionalLetterSpacing;
+                
+                console.log("Screen width:", viewportWidth, "Letter spacing:", proportionalLetterSpacing);
+                
+                return proportionalLetterSpacing;
+            }
+        }
+        
+        // Initialize header size
+        function initHeader() {
+            header.style.height = INITIAL_HEADER_HEIGHT + 'px';
+            spacer.style.height = INITIAL_HEADER_HEIGHT + 'px';
+            
+            // Wait a moment for fonts to load before calculating
+            setTimeout(() => {
+                // Calculate the spacing to stretch text edge to edge
+                makeTextStretchEdgeToEdge();
+                
+                // Store natural height of text for calculations
+                const originalTransform = headerText.style.transform;
+                headerText.style.transform = 'none';
+                const naturalHeight = headerText.offsetHeight;
+                headerText.style.transform = originalTransform;
+                
+                // Calculate how much we need to scale vertically to match screenshot
+                const initialScaleY = INITIAL_HEADER_HEIGHT * 1.8 / naturalHeight;
+                
+                // Store original scale values
+                headerText.dataset.initialScaleY = initialScaleY;
+                headerText.dataset.finalScaleY = 0.8; // Slightly smaller than normal at the end
+                
+                // Apply initial vertical stretching
+                headerText.style.transform = `scaleY(${initialScaleY})`;
+                
+                // Initial update
+                updateHeaderTransform(0);
+            }, 100);
+        }
+        
+        // Use requestAnimationFrame for smoother animations
+        let lastScrollPos = 0;
+        let ticking = false;
+        
+        // Update header based on scroll position
+        function updateHeaderTransform(scrollPos) {
+            // Calculate how much to shrink the header (between 0 and 1)
+            const shrinkRatio = Math.min(scrollPos / (INITIAL_HEADER_HEIGHT * 0.8), 1);
+            
+            // Calculate current header height
+            const currentHeight = INITIAL_HEADER_HEIGHT - shrinkRatio * (INITIAL_HEADER_HEIGHT - MIN_HEADER_HEIGHT);
+            
+            // Apply height change
+            header.style.height = currentHeight + 'px';
+            
+            // Get scale values for vertical scaling only
+            const initialScaleY = parseFloat(headerText.dataset.initialScaleY);
+            const finalScaleY = parseFloat(headerText.dataset.finalScaleY);
+            
+            // Calculate current scaleY - starting from very high (stretched) and reducing to normal
+            const currentScaleY = initialScaleY - shrinkRatio * (initialScaleY - finalScaleY);
+            
+            // Apply the transform - maintain the edge-to-edge width
+            headerText.style.transform = `scaleY(${currentScaleY})`;
+            
+            // Adjust border width based on shrink ratio
+            const borderWidth = 2 - shrinkRatio;
+            header.style.borderWidth = borderWidth + 'px';
+            
+            ticking = false;
+        }
+        
+        // Handle scroll events with requestAnimationFrame
+        function handleScroll() {
+            lastScrollPos = window.pageYOffset || document.documentElement.scrollTop;
+            
+            if (!ticking) {
+                window.requestAnimationFrame(() => {
+                    updateHeaderTransform(lastScrollPos);
+                });
+                ticking = true;
+            }
+        }
+        
+        // Handle window resize with debounce
+        const handleResize = debounce(function() {
+            // Recalculate the letter spacing on resize
+            makeTextStretchEdgeToEdge();
+            
+            // Recalculate header height constant on resize
+            const newInitialHeaderHeight = window.innerHeight;
+            // Update spacer height
+            spacer.style.height = newInitialHeaderHeight + 'px';
+            
+            // Update header transform
+            handleScroll();
+        }, 100);
+        
+        // Sample video URLs (replace with your actual video URLs)
+        const sampleVideos = [
+            "IMG_7949.MP4",
+            "IMG_7950.MP4",
+            "IMG_7951.MP4",
+            "IMG_7953.MP4",
+            "IMG_7962.MP4",
+            "IMG_7990.MP4"
+        ];
+        
+        // ASCII art versions of the videos
+        const asciiVideos = [
+            "mouri_ascii.mp4",
+            "IMG_7950_ascii.MP4",
+            "IMG_7951_ascii.MP4",
+            "IMG_7953_ascii.MP4",
+            "IMG_7962_ascii.MP4",
+            "IMG_7990_ascii.MP4"
+        ];
+        
+        // Keep track of loaded videos to limit concurrent loading
+        let loadedVideos = 0;
+        const CONCURRENT_VIDEO_LOAD_LIMIT = 6;
+        
+        // Function to create video elements with hover effect
+        function createVideoGrid() {
+            const videoGrid = document.getElementById('videoGrid');
+            videoGrid.innerHTML = ''; // Clear existing videos if any
+            
+            // Calculate how many videos to display based on screen size
+            const screenWidth = window.innerWidth;
+            const screenHeight = window.innerHeight;
+            
+            // Determine number of columns based on screen width
+            let videosPerRow;
+            if (screenWidth <= 600) {
+                videosPerRow = 1;
+            } else if (screenWidth <= 900) {
+                videosPerRow = 2;
+            } else if (screenWidth <= 1200) {
+                videosPerRow = 3;
+            } else {
+                videosPerRow = 4; // Maximum 4 columns as requested
+            }
+            
+            // Calculate the number of rows needed to fill the screen plus some extra
+            const videoHeight = (screenWidth / videosPerRow) * (16/9); // Approximate height in portrait mode
+            const rowsNeeded = Math.ceil((screenHeight * 2) / videoHeight); // Fill 2 screen heights
+            const totalVideos = rowsNeeded * videosPerRow;
+            
+            // Create video elements (only what's needed to fill the screen plus some extra)
+            for (let i = 0; i < totalVideos; i++) {
+                const videoItem = document.createElement('div');
+                videoItem.className = 'video-item';
+                
+                // Create the normal video
+                const normalVideo = document.createElement('video');
+                normalVideo.src = sampleVideos[i % sampleVideos.length]; // Cycle through available videos
+                normalVideo.className = 'normal-video';
+                normalVideo.loop = true;
+                normalVideo.muted = true;
+                normalVideo.autoplay = true;
+                normalVideo.playsInline = true;
+                normalVideo.preload = "auto";
+                normalVideo.setAttribute('playsinline', '');
+                
+                // Add proper sizing for performance
+                normalVideo.width = 640; // Set a standard size
+                normalVideo.height = 1136; // 16:9 ratio for portrait
+                
+                // Add ended event listener to ensure looping works
+                normalVideo.addEventListener('ended', function() {
+                    this.currentTime = 0;
+                    this.play().catch(e => console.log('Error restarting normal video:', e));
+                });
+                
+                // Create the ASCII art version video
+                const asciiVideo = document.createElement('video');
+                asciiVideo.src = asciiVideos[i % asciiVideos.length]; // Cycle through available ASCII videos
+                asciiVideo.className = 'ascii-video';
+                asciiVideo.loop = true;
+                asciiVideo.muted = true;
+                asciiVideo.autoplay = true;
+                asciiVideo.playsInline = true;
+                asciiVideo.preload = "auto";
+                asciiVideo.setAttribute('playsinline', '');
+                
+                // Add proper sizing for performance
+                asciiVideo.width = 640; // Set a standard size
+                asciiVideo.height = 1136; // 16:9 ratio for portrait
+                
+                // Add ended event listener to ensure looping works
+                asciiVideo.addEventListener('ended', function() {
+                    this.currentTime = 0;
+                    this.play().catch(e => console.log('Error restarting ASCII video:', e));
+                });
+                
+                // Add error handling for video loading
+                normalVideo.onerror = function() {
+                    console.error(`Failed to load normal video: ${this.src}`);
+                };
+                
+                asciiVideo.onerror = function() {
+                    console.error(`Failed to load ASCII video: ${this.src}`);
+                };
+                
+                // Add both videos to the container
+                videoItem.appendChild(normalVideo);
+                videoItem.appendChild(asciiVideo);
+                
+                // Add hover event listeners with throttling for performance
+                let isHovered = false;
+                videoItem.addEventListener('mouseenter', function() {
+                    if (!isHovered) {
+                        isHovered = true;
+                        normalVideo.style.opacity = '0';
+                        asciiVideo.style.opacity = '1';
+                    }
+                });
+                
+                videoItem.addEventListener('mouseleave', function() {
+                    if (isHovered) {
+                        isHovered = false;
+                        normalVideo.style.opacity = '1';
+                        asciiVideo.style.opacity = '0';
+                    }
+                });
+                
+                // Add touch events for mobile
+                videoItem.addEventListener('touchstart', function() {
+                    if (!isHovered) {
+                        isHovered = true;
+                        normalVideo.style.opacity = '0';
+                        asciiVideo.style.opacity = '1';
+                    } else {
+                        isHovered = false;
+                        normalVideo.style.opacity = '1';
+                        asciiVideo.style.opacity = '0';
+                    }
+                });
+                
+                videoGrid.appendChild(videoItem);
+                
+                // Use a visibility-based approach for starting videos
+                if (i < CONCURRENT_VIDEO_LOAD_LIMIT) {
+                    // Start first batch immediately
+                    startVideoWithSynchronization(normalVideo, asciiVideo, i);
+                    loadedVideos++;
+                } else {
+                    // Mark as not loaded yet
+                    normalVideo.dataset.loaded = "false";
+                    asciiVideo.dataset.loaded = "false";
+                }
+            }
+        }
+        
+        // Function to start a video pair with synchronization
+        function startVideoWithSynchronization(normalVideo, asciiVideo, delay) {
+            // Use timeupdate event for better synchronization only when visible
+            let syncInProgress = false;
+            
+            normalVideo.addEventListener('timeupdate', function() {
+                if (!syncInProgress && Math.abs(normalVideo.currentTime - asciiVideo.currentTime) > 0.2) {
+                    syncInProgress = true;
+                    asciiVideo.currentTime = normalVideo.currentTime;
+                    setTimeout(() => { syncInProgress = false; }, 1000);
+                }
+            });
+            
+            // Mark as loaded
+            normalVideo.dataset.loaded = "true";
+            asciiVideo.dataset.loaded = "true";
+            
+            // Start both videos with minimal delay between each pair
+            setTimeout(() => {
+                // Reset to beginning
+                normalVideo.currentTime = 0;
+                asciiVideo.currentTime = 0;
+                
+                // Start playing
+                Promise.all([
+                    normalVideo.play().catch(error => console.log('Normal video play failed:', error)),
+                    asciiVideo.play().catch(error => console.log('ASCII video play failed:', error))
+                ]);
+            }, delay * 100);
+        }
+
+        // Add lazy loading for videos using Intersection Observer API
+        function setupLazyLoading() {
+            // Check if IntersectionObserver is supported
+            if ('IntersectionObserver' in window) {
+                const observer = new IntersectionObserver((entries) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                            const videoItem = entry.target;
+                            const videos = videoItem.querySelectorAll('video');
+                            const normalVideo = videos[0];
+                            const asciiVideo = videos[1];
+                            
+                            // If not already loaded and we haven't hit our concurrent limit
+                            if (normalVideo.dataset.loaded !== "true" && loadedVideos < CONCURRENT_VIDEO_LOAD_LIMIT) {
+                                startVideoWithSynchronization(normalVideo, asciiVideo, 0);
+                                loadedVideos++;
+                            }
+                            
+                            // Resume videos that are already loaded
+                            if (normalVideo.dataset.loaded === "true") {
+                                normalVideo.play().catch(e => console.log(e));
+                                asciiVideo.play().catch(e => console.log(e));
+                            }
+                        } else {
+                            // Pause when not visible to save resources
+                            const videos = entry.target.querySelectorAll('video');
+                            videos.forEach(video => {
+                                if (video.dataset.loaded === "true") {
+                                    video.pause();
+                                }
+                            });
+                        }
+                    });
+                }, {
+                    root: null,
+                    rootMargin: '200px', // Load videos slightly before they become visible
+                    threshold: 0.1
+                });
+                
+                document.querySelectorAll('.video-item').forEach(item => {
+                    observer.observe(item);
+                });
+            } else {
+                // Fallback for browsers that don't support IntersectionObserver
+                console.log("IntersectionObserver not supported, loading all videos");
+                document.querySelectorAll('.video-item').forEach((item, index) => {
+                    const videos = item.querySelectorAll('video');
+                    if (index < CONCURRENT_VIDEO_LOAD_LIMIT) {
+                        startVideoWithSynchronization(videos[0], videos[1], index);
+                        loadedVideos++;
+                    }
+                });
+            }
+        }
+
+        // Initial load
+        window.addEventListener('DOMContentLoaded', () => {
+            initHeader();
+            createVideoGrid();
+            setupLazyLoading();
+            
+            // Add scroll event listener
+            window.addEventListener('scroll', handleScroll);
+            
+            // Add resize event listener
+            window.addEventListener('resize', handleResize);
+            
+            // Run once to set initial state
+            handleScroll();
+        });
+    </script>
+</body>
+</html>
