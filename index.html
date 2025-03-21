@@ -46,13 +46,13 @@
             align-items: center;
             justify-content: center;
             transition: border 0.3s ease, height 0.3s ease;
+            overflow: hidden;
         }
         
         .header-content {
             width: 100%;
             height: 100%;
             display: flex;
-            flex-direction: column; /* Allow for text wrapping */
             align-items: center;
             justify-content: center;
             overflow: hidden;
@@ -70,38 +70,26 @@
             width: 100%;
             transform-origin: center;
             position: relative;
-            margin-left: 0; /* Will be adjusted dynamically by JS */
             text-align: center;
         }
         
-        /* Mobile styles for h1 */
-        @media (max-width: 768px) {
+        /* Responsive font-size adjustments */
+        @media (max-width: 1200px) {
+            h1 {
+                font-size: 5rem;
+            }
+        }
+        
+        @media (max-width: 900px) {
             h1 {
                 font-size: 4rem;
             }
         }
         
-        @media (max-width: 480px) {
+        @media (max-width: 600px) {
             h1 {
-                font-size: 3rem;
+                font-size: 2rem;
             }
-            
-            .header-content {
-                height: auto !important;
-                min-height: 150px;
-                padding: 20px 0;
-            }
-            
-            .h1-line {
-                padding: 5px 0;
-            }
-        }
-        
-        .h1-line {
-            display: block;
-            width: 100%;
-            text-align: center;
-            letter-spacing: 20px; /* Smaller but still visible letter spacing for wrapped text */
         }
         
         .spacer {
@@ -171,7 +159,7 @@
 </head>
 <body class="hide-scrollbar">
     <header id="stickyHeader">
-        <div class="header-content" id="headerContent">
+        <div class="header-content">
             <h1 id="headerText">ALLTAGSSCRIPTS</h1>
         </div>
     </header>
@@ -185,20 +173,15 @@
     <script>
         // Header animation variables
         const header = document.getElementById('stickyHeader');
-        const headerContent = document.getElementById('headerContent');
         const headerText = document.getElementById('headerText');
         const spacer = document.getElementById('headerSpacer');
         
         // Original Text
         const originalText = "ALLTAGSSCRIPTS";
-        const splitPoint = 7; // Split after "ALLTAGS"
         
         // Header animation constants
         const MIN_HEADER_HEIGHT = 80; // final header height in px
         const INITIAL_HEADER_HEIGHT = window.innerHeight; // full viewport height
-        
-        // Breakpoint for text wrapping (in pixels)
-        const TEXT_WRAP_BREAKPOINT = 768;
         
         // Debounce function for performance optimization
         function debounce(func, wait) {
@@ -213,17 +196,6 @@
             };
         }
         
-        // Function to check if we need to wrap the text
-        function shouldWrapText(screenWidth, letterSpacing) {
-            // Calculate the width the text would take with current letter spacing
-            const textWithoutSpacing = originalText.length * parseInt(getComputedStyle(headerText).fontSize);
-            const spacingWidth = (originalText.length - 1) * letterSpacing;
-            const totalWidth = textWithoutSpacing + spacingWidth;
-            
-            // If the text would be wider than the screen with current letter spacing
-            return totalWidth > screenWidth * 1.2; // Add some buffer
-        }
-        
         // Function to make text stretch from edge to edge
         function makeTextStretchEdgeToEdge() {
             // Your reference screen size is 63cm x 34cm (approximately 2480px x 1340px)
@@ -233,89 +205,31 @@
             // Get current viewport width
             const viewportWidth = window.innerWidth;
             
-            // Check if we should use wrapped text on small screens
-            const shouldWrap = viewportWidth < TEXT_WRAP_BREAKPOINT;
+            // Calculate the proportional letter spacing based on screen width
+            let proportionalLetterSpacing = Math.min((viewportWidth / referenceWidth) * baseLetterSpacing, baseLetterSpacing);
             
-            // Adjust headerText content based on wrapping decision
-            if (shouldWrap) {
-                // Split the text into two lines
-                if (headerText.childElementCount === 0) { // Only if not already split
-                    headerText.innerHTML = '';
-                    
-                    const line1 = document.createElement('div');
-                    line1.className = 'h1-line';
-                    line1.textContent = originalText.substring(0, splitPoint);
-                    
-                    const line2 = document.createElement('div');
-                    line2.className = 'h1-line';
-                    line2.textContent = originalText.substring(splitPoint);
-                    
-                    headerText.appendChild(line1);
-                    headerText.appendChild(line2);
-                } else {
-                    // Make sure both lines are visible if already split
-                    if (headerText.childElementCount >= 2) {
-                        headerText.children[0].style.display = 'block';
-                        headerText.children[1].style.display = 'block';
-                    }
-                }
-                
-                // Small screens get minimal letter spacing that still looks good
-                const minLetterSpacing = Math.max(viewportWidth / 25, 10); // Ensure minimum spacing
-                
-                // Apply letter spacing to each line individually instead of parent
-                if (headerText.childElementCount >= 2) {
-                    headerText.style.letterSpacing = '0px';
-                    headerText.children[0].style.letterSpacing = minLetterSpacing + 'px';
-                    headerText.children[1].style.letterSpacing = minLetterSpacing + 'px';
-                } else {
-                    headerText.style.letterSpacing = minLetterSpacing + 'px';
-                }
-                
-                headerText.style.marginLeft = '0';
-                
-                // Store original font size and letter spacing for animations
-                headerText.dataset.originalFontSize = getComputedStyle(headerText).fontSize;
-                headerText.dataset.letterSpacing = minLetterSpacing;
-                
-                // Adjust header height for two lines
-                const newInitialHeight = INITIAL_HEADER_HEIGHT * 1.2;
-                header.style.height = newInitialHeight + 'px';
-                spacer.style.height = newInitialHeight + 'px';
-                
-                return minLetterSpacing;
-            } else {
-                // Reset to single line if was previously wrapped
-                if (headerText.childElementCount > 0) {
-                    headerText.innerHTML = originalText;
-                }
-                
-                // Calculate the proportional letter spacing based on screen width
-                let proportionalLetterSpacing = (viewportWidth / referenceWidth) * baseLetterSpacing;
-                
-                // If the calculated letter spacing would cause text to overflow
-                if (shouldWrapText(viewportWidth, proportionalLetterSpacing)) {
-                    // Calculate maximum letter spacing that fits the screen width
-                    const fontSize = parseInt(getComputedStyle(headerText).fontSize);
-                    const charsWidth = fontSize * originalText.length;
-                    const maxAvailableSpace = viewportWidth - fontSize;
-                    const maxLetterSpacing = Math.floor((maxAvailableSpace - charsWidth) / (originalText.length - 1));
-                    
-                    // Use the smaller of the two to ensure it fits
-                    proportionalLetterSpacing = Math.min(proportionalLetterSpacing, maxLetterSpacing);
-                }
-                
-                // Apply the calculated letter spacing
-                headerText.style.letterSpacing = proportionalLetterSpacing + 'px';
-                
-                // Store original font size and letter spacing for animations
-                headerText.dataset.originalFontSize = getComputedStyle(headerText).fontSize;
-                headerText.dataset.letterSpacing = proportionalLetterSpacing;
-                
-                console.log("Screen width:", viewportWidth, "Letter spacing:", proportionalLetterSpacing);
-                
-                return proportionalLetterSpacing;
+            // Ensure minimum letter spacing on small screens
+            if (viewportWidth < 768) {
+                proportionalLetterSpacing = Math.max(2, proportionalLetterSpacing);
+            } else if (viewportWidth < 480) {
+                proportionalLetterSpacing = Math.max(1, proportionalLetterSpacing);
             }
+            
+            // Apply the calculated letter spacing
+            headerText.style.letterSpacing = proportionalLetterSpacing + 'px';
+            
+            // Calculate left margin for visual centering
+            // This is important for proper alignment on mobile
+            const leftMargin = Math.max(0, proportionalLetterSpacing - 20);
+            headerText.style.marginLeft = leftMargin + 'px';
+            
+            // Store original font size and letter spacing for animations
+            headerText.dataset.originalFontSize = getComputedStyle(headerText).fontSize;
+            headerText.dataset.letterSpacing = proportionalLetterSpacing;
+            
+            console.log("Screen width:", viewportWidth, "Letter spacing:", proportionalLetterSpacing);
+            
+            return proportionalLetterSpacing;
         }
         
         // Initialize header size
