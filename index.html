@@ -71,24 +71,37 @@
             transform-origin: center;
             position: relative;
             text-align: center;
+            /* Add transform: scale to make text fit width */
+            transform: scale(1, 1);
+            transform-origin: left center;
         }
         
         /* Responsive font-size adjustments */
         @media (max-width: 1200px) {
             h1 {
-                font-size: 5rem;
+                font-size: 4.5rem;
+                letter-spacing: 60px !important;
             }
         }
         
         @media (max-width: 900px) {
             h1 {
-                font-size: 4rem;
+                font-size: 3.5rem;
+                letter-spacing: 30px !important;
             }
         }
         
         @media (max-width: 600px) {
             h1 {
-                font-size: 2rem;
+                font-size: 1.8rem;
+                letter-spacing: 7px !important;
+            }
+        }
+        
+        @media (max-width: 400px) {
+            h1 {
+                font-size: 1.5rem;
+                letter-spacing: 3px !important;
             }
         }
         
@@ -205,26 +218,36 @@
             // Get current viewport width
             const viewportWidth = window.innerWidth;
             
-            // Calculate the proportional letter spacing based on screen width
-            let proportionalLetterSpacing = Math.min((viewportWidth / referenceWidth) * baseLetterSpacing, baseLetterSpacing);
-            
-            // Ensure minimum letter spacing on small screens
-            if (viewportWidth < 768) {
-                proportionalLetterSpacing = Math.max(2, proportionalLetterSpacing);
-            } else if (viewportWidth < 480) {
-                proportionalLetterSpacing = Math.max(1, proportionalLetterSpacing);
+            // Use the CSS media query breakpoints to determine letter spacing
+            let proportionalLetterSpacing;
+            if (viewportWidth <= 400) {
+                proportionalLetterSpacing = 3; // Minimum letter spacing for very small screens
+            } else if (viewportWidth <= 600) {
+                proportionalLetterSpacing = 7; // Small screens
+            } else if (viewportWidth <= 900) {
+                proportionalLetterSpacing = 30; // Medium screens
+            } else if (viewportWidth <= 1200) {
+                proportionalLetterSpacing = 60; // Larger screens
+            } else {
+                proportionalLetterSpacing = baseLetterSpacing; // Full size on large screens
             }
             
             // Apply the calculated letter spacing
             headerText.style.letterSpacing = proportionalLetterSpacing + 'px';
             
-            // Calculate left margin for visual centering
-            // This is important for proper alignment on mobile
-            const leftMargin = Math.max(0, proportionalLetterSpacing - 20);
-            headerText.style.marginLeft = leftMargin + 'px';
+            // Calculate and apply horizontal scaling to ensure full text visibility
+            const textWidth = headerText.scrollWidth;
+            const containerWidth = header.offsetWidth;
             
-            // Store original font size and letter spacing for animations
-            headerText.dataset.originalFontSize = getComputedStyle(headerText).fontSize;
+            // If text is wider than container, scale it down horizontally
+            if (textWidth > containerWidth) {
+                const scale = containerWidth / textWidth * 0.95; // Add 5% safety margin
+                headerText.style.transform = `scaleX(${scale})`;
+            } else {
+                headerText.style.transform = 'scaleX(1)';
+            }
+            
+            // Store letter spacing for animations
             headerText.dataset.letterSpacing = proportionalLetterSpacing;
             
             console.log("Screen width:", viewportWidth, "Letter spacing:", proportionalLetterSpacing);
@@ -345,6 +368,10 @@
         let loadedVideos = 0;
         const CONCURRENT_VIDEO_LOAD_LIMIT = 12; // Increased limit for more videos
         
+        // Performance optimizations
+        const USE_LOW_QUALITY_FOR_MOBILE = true; // Lower quality on mobile for better performance
+        const MOBILE_WIDTH_THRESHOLD = 768; // Screen width threshold for mobile optimizations
+        
         // Function to create video elements with hover effect
         function createVideoGrid() {
             const videoGrid = document.getElementById('videoGrid');
@@ -387,9 +414,19 @@
                 normalVideo.preload = "auto";
                 normalVideo.setAttribute('playsinline', '');
                 
-                // Add proper sizing for performance
+                // Apply proper sizing for performance
                 normalVideo.width = 640; // Set a standard size
                 normalVideo.height = 1136; // 16:9 ratio for portrait
+                
+                // Mobile performance optimizations
+                if (USE_LOW_QUALITY_FOR_MOBILE && window.innerWidth <= MOBILE_WIDTH_THRESHOLD) {
+                    normalVideo.setAttribute('playsinline', '');
+                    normalVideo.setAttribute('preload', 'metadata');
+                    normalVideo.style.objectFit = 'contain'; // Less GPU intensive
+                } else {
+                    normalVideo.setAttribute('playsinline', '');
+                    normalVideo.preload = "auto";
+                }
                 
                 // Add ended event listener to ensure looping works
                 normalVideo.addEventListener('ended', function() {
@@ -408,9 +445,19 @@
                 asciiVideo.preload = "auto";
                 asciiVideo.setAttribute('playsinline', '');
                 
-                // Add proper sizing for performance
+                // Apply proper sizing for performance
                 asciiVideo.width = 640; // Set a standard size
                 asciiVideo.height = 1136; // 16:9 ratio for portrait
+                
+                // Mobile performance optimizations
+                if (USE_LOW_QUALITY_FOR_MOBILE && window.innerWidth <= MOBILE_WIDTH_THRESHOLD) {
+                    asciiVideo.setAttribute('playsinline', '');
+                    asciiVideo.setAttribute('preload', 'metadata');
+                    asciiVideo.style.objectFit = 'contain'; // Less GPU intensive
+                } else {
+                    asciiVideo.setAttribute('playsinline', '');
+                    asciiVideo.preload = "auto";
+                }
                 
                 // Add ended event listener to ensure looping works
                 asciiVideo.addEventListener('ended', function() {
@@ -482,13 +529,27 @@
             // Use timeupdate event for better synchronization only when visible
             let syncInProgress = false;
             
-            normalVideo.addEventListener('timeupdate', function() {
-                if (!syncInProgress && Math.abs(normalVideo.currentTime - asciiVideo.currentTime) > 0.2) {
-                    syncInProgress = true;
-                    asciiVideo.currentTime = normalVideo.currentTime;
-                    setTimeout(() => { syncInProgress = false; }, 1000);
-                }
-            });
+            // On mobile, we'll use a more performant approach with fewer sync events
+            const isMobile = window.innerWidth <= MOBILE_WIDTH_THRESHOLD;
+            
+            if (!isMobile) {
+                normalVideo.addEventListener('timeupdate', function() {
+                    if (!syncInProgress && Math.abs(normalVideo.currentTime - asciiVideo.currentTime) > 0.2) {
+                        syncInProgress = true;
+                        asciiVideo.currentTime = normalVideo.currentTime;
+                        setTimeout(() => { syncInProgress = false; }, 1000);
+                    }
+                });
+            } else {
+                // For mobile, sync less frequently to improve performance
+                normalVideo.addEventListener('seeked', function() {
+                    if (!syncInProgress) {
+                        syncInProgress = true;
+                        asciiVideo.currentTime = normalVideo.currentTime;
+                        setTimeout(() => { syncInProgress = false; }, 1000);
+                    }
+                });
+            }
             
             // Mark as loaded
             normalVideo.dataset.loaded = "true";
@@ -512,6 +573,14 @@
         function setupLazyLoading() {
             // Check if IntersectionObserver is supported
             if ('IntersectionObserver' in window) {
+                const isMobile = window.innerWidth <= MOBILE_WIDTH_THRESHOLD;
+                const observerOptions = {
+                    root: null,
+                    // Smaller rootMargin on mobile for better performance
+                    rootMargin: isMobile ? '100px' : '200px',
+                    threshold: 0.1
+                };
+                
                 const observer = new IntersectionObserver((entries) => {
                     entries.forEach(entry => {
                         if (entry.isIntersecting) {
@@ -541,11 +610,7 @@
                             });
                         }
                     });
-                }, {
-                    root: null,
-                    rootMargin: '200px', // Load videos slightly before they become visible
-                    threshold: 0.1
-                });
+                }, observerOptions);
                 
                 document.querySelectorAll('.video-item').forEach(item => {
                     observer.observe(item);
