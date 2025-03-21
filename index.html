@@ -85,11 +85,23 @@
             h1 {
                 font-size: 3rem;
             }
+            
+            .header-content {
+                height: auto !important;
+                min-height: 150px;
+                padding: 20px 0;
+            }
+            
+            .h1-line {
+                padding: 5px 0;
+            }
         }
         
         .h1-line {
-            display: inline-block;
+            display: block;
             width: 100%;
+            text-align: center;
+            letter-spacing: 20px; /* Smaller but still visible letter spacing for wrapped text */
         }
         
         .spacer {
@@ -240,11 +252,26 @@
                     
                     headerText.appendChild(line1);
                     headerText.appendChild(line2);
+                } else {
+                    // Make sure both lines are visible if already split
+                    if (headerText.childElementCount >= 2) {
+                        headerText.children[0].style.display = 'block';
+                        headerText.children[1].style.display = 'block';
+                    }
                 }
                 
                 // Small screens get minimal letter spacing that still looks good
                 const minLetterSpacing = Math.max(viewportWidth / 25, 10); // Ensure minimum spacing
-                headerText.style.letterSpacing = minLetterSpacing + 'px';
+                
+                // Apply letter spacing to each line individually instead of parent
+                if (headerText.childElementCount >= 2) {
+                    headerText.style.letterSpacing = '0px';
+                    headerText.children[0].style.letterSpacing = minLetterSpacing + 'px';
+                    headerText.children[1].style.letterSpacing = minLetterSpacing + 'px';
+                } else {
+                    headerText.style.letterSpacing = minLetterSpacing + 'px';
+                }
+                
                 headerText.style.marginLeft = '0';
                 
                 // Store original font size and letter spacing for animations
@@ -402,7 +429,7 @@
         
         // Keep track of loaded videos to limit concurrent loading
         let loadedVideos = 0;
-        const CONCURRENT_VIDEO_LOAD_LIMIT = 6;
+        const CONCURRENT_VIDEO_LOAD_LIMIT = 12; // Increased limit for more videos
         
         // Function to create video elements with hover effect
         function createVideoGrid() {
@@ -427,8 +454,8 @@
             
             // Calculate the number of rows needed to fill the screen plus some extra
             const videoHeight = (screenWidth / videosPerRow) * (16/9); // Approximate height in portrait mode
-            const rowsNeeded = Math.ceil((screenHeight * 2) / videoHeight); // Fill 2 screen heights
-            const totalVideos = rowsNeeded * videosPerRow;
+            const rowsNeeded = Math.ceil((screenHeight * 3) / videoHeight); // Fill 3 screen heights for more videos
+            const totalVideos = Math.max(rowsNeeded * videosPerRow, 12); // Ensure at least 12 videos are loaded
             
             // Create video elements (only what's needed to fill the screen plus some extra)
             for (let i = 0; i < totalVideos; i++) {
