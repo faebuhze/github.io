@@ -56,6 +56,7 @@
             align-items: center;
             justify-content: center;
             overflow: hidden;
+            padding: 0; /* Kein Padding, damit der Text die Ränder berühren kann */
         }
         
         h1 {
@@ -68,40 +69,39 @@
             text-shadow: 0 0 1px yellow;
             white-space: nowrap;
             width: 100%;
-            transform-origin: center;
+            transform-origin: left center;
             position: relative;
             text-align: center;
-            /* Add transform: scale to make text fit width */
-            transform: scale(1, 1);
-            transform-origin: left center;
+            /* Initial transform - will be set by JS */
+            transform: scaleY(5);
         }
         
         /* Responsive font-size adjustments */
         @media (max-width: 1200px) {
             h1 {
                 font-size: 4.5rem;
-                letter-spacing: 60px !important;
+                /* Entferne feste letter-spacing, wird dynamisch berechnet */
             }
         }
         
         @media (max-width: 900px) {
             h1 {
                 font-size: 3.5rem;
-                letter-spacing: 30px !important;
+                /* Entferne feste letter-spacing, wird dynamisch berechnet */
             }
         }
         
         @media (max-width: 600px) {
             h1 {
                 font-size: 1.8rem;
-                letter-spacing: 7px !important;
+                /* Entferne feste letter-spacing, wird dynamisch berechnet */
             }
         }
         
         @media (max-width: 400px) {
             h1 {
                 font-size: 1.5rem;
-                letter-spacing: 3px !important;
+                /* Entferne feste letter-spacing, wird dynamisch berechnet */
             }
         }
         
@@ -139,6 +139,16 @@
             transition: opacity 0.3s ease;
             backface-visibility: hidden; /* Performance optimization */
         }
+
+        /* Benutzerdefinierter Cursor - schwarzer Punkt mit gelber Umrandung */
+        body, html, * {
+            cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><circle cx="16" cy="16" r="12" stroke="yellow" stroke-width="2" fill="black" /></svg>') 16 16, auto;
+        }
+
+        /* Zeige einen etwas größeren Cursor für interaktive Elemente */
+        a, button, input, .video-item {
+            cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><circle cx="16" cy="16" r="14" stroke="yellow" stroke-width="2" fill="black" /></svg>') 16 16, pointer;
+        }
         
         .normal-video {
             opacity: 1;
@@ -171,13 +181,13 @@
     </style>
 </head>
 <body class="hide-scrollbar">
-    <header id="stickyHeader">
+    <header id="stickyHeader" style="height: 100vh;">
         <div class="header-content">
-            <h1 id="headerText">ALLTAGSSCRIPTS</h1>
+            <h1 id="headerText" style="transform: scaleY(5);">ALLTAGSSCRIPTS</h1>
         </div>
     </header>
     
-    <div class="spacer" id="headerSpacer"></div>
+    <div class="spacer" id="headerSpacer" style="height: 100vh;"></div>
     
     <div class="video-container" id="videoGrid">
         <!-- Videos will be dynamically added here -->
@@ -209,54 +219,70 @@
             };
         }
         
-        // Function to make text stretch from edge to edge
+        // Enhanced function to make text stretch from edge to edge
         function makeTextStretchEdgeToEdge() {
-            // Your reference screen size is 63cm x 34cm (approximately 2480px x 1340px)
-            const referenceWidth = 2480; // This is an approximate pixel equivalent of your 63cm screen
-            const baseLetterSpacing = 127; // The letter-spacing you want at your reference screen width
-            
             // Get current viewport width
             const viewportWidth = window.innerWidth;
             
-            // Use the CSS media query breakpoints to determine letter spacing
-            let proportionalLetterSpacing;
-            if (viewportWidth <= 400) {
-                proportionalLetterSpacing = 3; // Minimum letter spacing for very small screens
-            } else if (viewportWidth <= 600) {
-                proportionalLetterSpacing = 7; // Small screens
-            } else if (viewportWidth <= 900) {
-                proportionalLetterSpacing = 30; // Medium screens
-            } else if (viewportWidth <= 1200) {
-                proportionalLetterSpacing = 60; // Larger screens
+            // Berechne dynamic letter spacing basierend auf Bildschirmbreite
+            // Auf 2400+ Pixeln verwenden wir das volle Letter-Spacing von 127px
+            // Darunter wird es proportional reduziert
+            let letterSpacing;
+            if (viewportWidth >= 2400) {
+                letterSpacing = 127;
+            } else if (viewportWidth <= 400) {
+                letterSpacing = 2; // Minimaler Abstand für sehr kleine Bildschirme
             } else {
-                proportionalLetterSpacing = baseLetterSpacing; // Full size on large screens
+                // Lineares Mapping zwischen 400px und 2400px Bildschirmbreite
+                letterSpacing = 2 + ((viewportWidth - 400) / 2000) * 125;
             }
             
-            // Apply the calculated letter spacing
-            headerText.style.letterSpacing = proportionalLetterSpacing + 'px';
+            // Runde auf ganze Zahlen
+            letterSpacing = Math.round(letterSpacing);
             
-            // Calculate and apply horizontal scaling to ensure full text visibility
+            // Wende letter-spacing an
+            headerText.style.letterSpacing = letterSpacing + 'px';
+            
+            // Berechne tatsächliche Textbreite
+            // Temporär Transform entfernen, um korrekte Breite zu messen
+            const originalTransform = headerText.style.transform;
+            headerText.style.transform = 'none';
             const textWidth = headerText.scrollWidth;
             const containerWidth = header.offsetWidth;
             
-            // If text is wider than container, scale it down horizontally
+            // Bei zu großer Textbreite horizontal skalieren
+            let scale = 1;
             if (textWidth > containerWidth) {
-                const scale = containerWidth / textWidth * 0.95; // Add 5% safety margin
-                headerText.style.transform = `scaleX(${scale})`;
-            } else {
-                headerText.style.transform = 'scaleX(1)';
+                // Erhöhe die Skalierung leicht um 3%, damit das "S" garantiert am Rand ankommt
+                scale = (containerWidth / textWidth) * 1.03;
+                console.log("Text wird skaliert mit Faktor:", scale);
             }
             
-            // Store letter spacing for animations
-            headerText.dataset.letterSpacing = proportionalLetterSpacing;
+            // Original-Transform wiederherstellen mit angepasster horizontaler Skalierung
+            // Extrahiere aktuellen scaleY-Wert
+            let currentScaleY = 5; // Default-Wert beim Start
+            if (originalTransform) {
+                const match = originalTransform.match(/scaleY\(([^)]+)\)/);
+                if (match && match[1]) {
+                    currentScaleY = parseFloat(match[1]);
+                }
+            }
             
-            console.log("Screen width:", viewportWidth, "Letter spacing:", proportionalLetterSpacing);
+            // Beide Transformationen kombinieren
+            headerText.style.transform = `scaleX(${scale}) scaleY(${currentScaleY})`;
             
-            return proportionalLetterSpacing;
+            // Speichere die Werte für Animationen
+            headerText.dataset.letterSpacing = letterSpacing;
+            headerText.dataset.scaleX = scale;
+            
+            console.log("Bildschirmbreite:", viewportWidth, "Letter-Spacing:", letterSpacing);
+            
+            return letterSpacing;
         }
         
         // Initialize header size
         function initHeader() {
+            // Set initial full-height for header
             header.style.height = INITIAL_HEADER_HEIGHT + 'px';
             spacer.style.height = INITIAL_HEADER_HEIGHT + 'px';
             
@@ -266,10 +292,8 @@
                 makeTextStretchEdgeToEdge();
                 
                 // Store natural height of text for calculations
-                const originalTransform = headerText.style.transform;
                 headerText.style.transform = 'none';
                 const naturalHeight = headerText.offsetHeight;
-                headerText.style.transform = originalTransform;
                 
                 // Calculate how much we need to scale vertically to match screenshot
                 const initialScaleY = INITIAL_HEADER_HEIGHT * 1.8 / naturalHeight;
@@ -278,11 +302,11 @@
                 headerText.dataset.initialScaleY = initialScaleY;
                 headerText.dataset.finalScaleY = 0.8; // Slightly smaller than normal at the end
                 
-                // Apply initial vertical stretching
-                headerText.style.transform = `scaleY(${initialScaleY})`;
+                // Apply initial vertical stretching - this should make the text tall at start
+                const scaleX = parseFloat(headerText.dataset.scaleX || '1');
+                headerText.style.transform = `scaleX(${scaleX}) scaleY(${initialScaleY})`;
                 
-                // Initial update
-                updateHeaderTransform(0);
+                console.log("Initial stretch applied, scaleY:", initialScaleY, "scaleX:", scaleX);
             }, 100);
         }
         
@@ -301,15 +325,16 @@
             // Apply height change
             header.style.height = currentHeight + 'px';
             
-            // Get scale values for vertical scaling only
+            // Get scale values
             const initialScaleY = parseFloat(headerText.dataset.initialScaleY);
             const finalScaleY = parseFloat(headerText.dataset.finalScaleY);
+            const scaleX = parseFloat(headerText.dataset.scaleX || '1');
             
             // Calculate current scaleY - starting from very high (stretched) and reducing to normal
             const currentScaleY = initialScaleY - shrinkRatio * (initialScaleY - finalScaleY);
             
-            // Apply the transform - maintain the edge-to-edge width
-            headerText.style.transform = `scaleY(${currentScaleY})`;
+            // Apply the transform - maintain the edge-to-edge width scaling with scaleX
+            headerText.style.transform = `scaleX(${scaleX}) scaleY(${currentScaleY})`;
             
             // Adjust border width based on shrink ratio
             const borderWidth = 2 - shrinkRatio;
@@ -349,9 +374,10 @@
             "IMG_7949.MP4",
             "IMG_7950.MP4",
             "IMG_7951.MP4",
-            "IMG_7953.MP4",
-            "IMG_7962.MP4",
-            "IMG_7990.MP4"
+            "IMG_7953.mp4",
+            "IMG_7962_2.MP4",
+            "IMG_7990.MP4",
+            "IMG_7964.mp4"
         ];
         
         // ASCII art versions of the videos
@@ -359,14 +385,18 @@
             "mouri_ascii.mp4",
             "IMG_7950_ascii.MP4",
             "IMG_7951_ascii.MP4",
-            "IMG_7953_ascii.MP4",
-            "IMG_7962_ascii.MP4",
-            "IMG_7990_ascii.MP4"
+            "IMG_7953_ascii_2.mp4",
+            "IMG_7962_ascii_2.MP4",
+            "IMG_7990_ascii.MP4",
+            "IMG_7964_ascii.mp4"
         ];
         
         // Keep track of loaded videos to limit concurrent loading
         let loadedVideos = 0;
         const CONCURRENT_VIDEO_LOAD_LIMIT = 12; // Increased limit for more videos
+        
+        // Set to track active video elements to manage playback
+        const activeVideos = new Set();
         
         // Performance optimizations
         const USE_LOW_QUALITY_FOR_MOBILE = true; // Lower quality on mobile for better performance
@@ -398,21 +428,30 @@
             const rowsNeeded = Math.ceil((screenHeight * 3) / videoHeight); // Fill 3 screen heights for more videos
             const totalVideos = Math.max(rowsNeeded * videosPerRow, 12); // Ensure at least 12 videos are loaded
             
+            // Check if we're on iOS (these settings help ensure autoplay and loop work on iPhone)
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+            
             // Create video elements (only what's needed to fill the screen plus some extra)
             for (let i = 0; i < totalVideos; i++) {
                 const videoItem = document.createElement('div');
                 videoItem.className = 'video-item';
                 
-                // Create the normal video
+                // Create the normal video with iOS-friendly settings
                 const normalVideo = document.createElement('video');
                 normalVideo.src = sampleVideos[i % sampleVideos.length]; // Cycle through available videos
                 normalVideo.className = 'normal-video';
                 normalVideo.loop = true;
                 normalVideo.muted = true;
-                normalVideo.autoplay = true;
+                normalVideo.autoplay = false; // Start as false, will be controlled by IntersectionObserver
                 normalVideo.playsInline = true;
-                normalVideo.preload = "auto";
-                normalVideo.setAttribute('playsinline', '');
+                normalVideo.setAttribute('playsinline', ''); // Essential for iOS
+                normalVideo.setAttribute('webkit-playsinline', ''); // For older iOS
+                
+                // iOS specific attributes
+                if (isIOS) {
+                    normalVideo.setAttribute('controls', false); // Hide controls but enable more iOS playback capabilities
+                    normalVideo.setAttribute('preload', 'auto');
+                }
                 
                 // Apply proper sizing for performance
                 normalVideo.width = 640; // Set a standard size
@@ -420,30 +459,28 @@
                 
                 // Mobile performance optimizations
                 if (USE_LOW_QUALITY_FOR_MOBILE && window.innerWidth <= MOBILE_WIDTH_THRESHOLD) {
-                    normalVideo.setAttribute('playsinline', '');
                     normalVideo.setAttribute('preload', 'metadata');
                     normalVideo.style.objectFit = 'contain'; // Less GPU intensive
                 } else {
-                    normalVideo.setAttribute('playsinline', '');
                     normalVideo.preload = "auto";
                 }
                 
-                // Add ended event listener to ensure looping works
-                normalVideo.addEventListener('ended', function() {
-                    this.currentTime = 0;
-                    this.play().catch(e => console.log('Error restarting normal video:', e));
-                });
-                
-                // Create the ASCII art version video
+                // Create the ASCII art version video with similar settings
                 const asciiVideo = document.createElement('video');
                 asciiVideo.src = asciiVideos[i % asciiVideos.length]; // Cycle through available ASCII videos
                 asciiVideo.className = 'ascii-video';
                 asciiVideo.loop = true;
                 asciiVideo.muted = true;
-                asciiVideo.autoplay = true;
+                asciiVideo.autoplay = false; // Start as false, will be controlled by IntersectionObserver
                 asciiVideo.playsInline = true;
-                asciiVideo.preload = "auto";
-                asciiVideo.setAttribute('playsinline', '');
+                asciiVideo.setAttribute('playsinline', ''); // Essential for iOS
+                asciiVideo.setAttribute('webkit-playsinline', ''); // For older iOS
+                
+                // iOS specific attributes
+                if (isIOS) {
+                    asciiVideo.setAttribute('controls', false); // Hide controls but enable more iOS playback capabilities
+                    asciiVideo.setAttribute('preload', 'auto');
+                }
                 
                 // Apply proper sizing for performance
                 asciiVideo.width = 640; // Set a standard size
@@ -451,19 +488,11 @@
                 
                 // Mobile performance optimizations
                 if (USE_LOW_QUALITY_FOR_MOBILE && window.innerWidth <= MOBILE_WIDTH_THRESHOLD) {
-                    asciiVideo.setAttribute('playsinline', '');
                     asciiVideo.setAttribute('preload', 'metadata');
                     asciiVideo.style.objectFit = 'contain'; // Less GPU intensive
                 } else {
-                    asciiVideo.setAttribute('playsinline', '');
                     asciiVideo.preload = "auto";
                 }
-                
-                // Add ended event listener to ensure looping works
-                asciiVideo.addEventListener('ended', function() {
-                    this.currentTime = 0;
-                    this.play().catch(e => console.log('Error restarting ASCII video:', e));
-                });
                 
                 // Add error handling for video loading
                 normalVideo.onerror = function() {
@@ -472,6 +501,17 @@
                 
                 asciiVideo.onerror = function() {
                     console.error(`Failed to load ASCII video: ${this.src}`);
+                };
+                
+                // Ensure videos restart when they end (forcing loop to work on iOS)
+                normalVideo.onended = function() {
+                    this.currentTime = 0;
+                    this.play().catch(e => console.log('Error restarting normal video:', e));
+                };
+                
+                asciiVideo.onended = function() {
+                    this.currentTime = 0;
+                    this.play().catch(e => console.log('Error restarting ASCII video:', e));
                 };
                 
                 // Add both videos to the container
@@ -511,65 +551,113 @@
                 
                 videoGrid.appendChild(videoItem);
                 
-                // Use a visibility-based approach for starting videos
-                if (i < CONCURRENT_VIDEO_LOAD_LIMIT) {
-                    // Start first batch immediately
-                    startVideoWithSynchronization(normalVideo, asciiVideo, i);
-                    loadedVideos++;
-                } else {
-                    // Mark as not loaded yet
-                    normalVideo.dataset.loaded = "false";
-                    asciiVideo.dataset.loaded = "false";
-                }
+                // Mark as not loaded yet - will be loaded by Intersection Observer
+                normalVideo.dataset.loaded = "false";
+                asciiVideo.dataset.loaded = "false";
+                
+                // Setze preload="none", um zu verhindern, dass der Browser die Videos vorab lädt
+                normalVideo.preload = "none";
+                asciiVideo.preload = "none";
             }
         }
         
         // Function to start a video pair with synchronization
-        function startVideoWithSynchronization(normalVideo, asciiVideo, delay) {
-            // Use timeupdate event for better synchronization only when visible
-            let syncInProgress = false;
-            
-            // On mobile, we'll use a more performant approach with fewer sync events
-            const isMobile = window.innerWidth <= MOBILE_WIDTH_THRESHOLD;
-            
-            if (!isMobile) {
-                normalVideo.addEventListener('timeupdate', function() {
-                    if (!syncInProgress && Math.abs(normalVideo.currentTime - asciiVideo.currentTime) > 0.2) {
-                        syncInProgress = true;
-                        asciiVideo.currentTime = normalVideo.currentTime;
-                        setTimeout(() => { syncInProgress = false; }, 1000);
-                    }
-                });
-            } else {
-                // For mobile, sync less frequently to improve performance
-                normalVideo.addEventListener('seeked', function() {
-                    if (!syncInProgress) {
-                        syncInProgress = true;
-                        asciiVideo.currentTime = normalVideo.currentTime;
-                        setTimeout(() => { syncInProgress = false; }, 1000);
-                    }
-                });
-            }
+        function startVideoWithSynchronization(normalVideo, asciiVideo) {
+            // Only attempt to load if not already loaded
+            if (normalVideo.dataset.loaded === "true") return;
             
             // Mark as loaded
             normalVideo.dataset.loaded = "true";
             asciiVideo.dataset.loaded = "true";
             
-            // Start both videos with minimal delay between each pair
-            setTimeout(() => {
-                // Reset to beginning
-                normalVideo.currentTime = 0;
-                asciiVideo.currentTime = 0;
-                
-                // Start playing
+            // Track these videos as active
+            activeVideos.add(normalVideo);
+            activeVideos.add(asciiVideo);
+            
+            // Lade Video-Inhalte explizit
+            normalVideo.load();
+            asciiVideo.load();
+            
+            // For iOS, use a slightly different approach
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+            if (isIOS) {
+                // For iOS, we need to play as a result of user interaction
+                // Then attempt to play them
+                playVideoIOSFriendly(normalVideo);
+                playVideoIOSFriendly(asciiVideo);
+            } else {
+                // On other platforms, we can simply play
                 Promise.all([
                     normalVideo.play().catch(error => console.log('Normal video play failed:', error)),
                     asciiVideo.play().catch(error => console.log('ASCII video play failed:', error))
                 ]);
-            }, delay * 100);
+            }
+            
+            // Make sure videos remain in sync
+            syncVideoPair(normalVideo, asciiVideo);
+        }
+        
+        // Special iOS-friendly play function
+        function playVideoIOSFriendly(video) {
+            video.play()
+                .then(() => {
+                    console.log("Video started playing successfully");
+                })
+                .catch(error => {
+                    console.log('Video play failed, retrying with different approach:', error);
+                    
+                    // If normal play fails, try with user interaction simulation
+                    video.setAttribute('autoplay', '');
+                    video.load();
+                    
+                    // Sometimes this helps on iOS
+                    setTimeout(() => {
+                        video.play()
+                            .catch(e => console.log('Final attempt to play video failed:', e));
+                    }, 100);
+                });
+        }
+        
+        // Function to keep a video pair synchronized
+        function syncVideoPair(normalVideo, asciiVideo) {
+            // Clear any existing sync interval for this video
+            clearInterval(normalVideo.syncInterval);
+            
+            // Create a new sync interval
+            normalVideo.syncInterval = setInterval(() => {
+                // Only sync if videos are playing and visible
+                if (normalVideo.dataset.visible === "true" && 
+                    !normalVideo.paused && !asciiVideo.paused) {
+                    
+                    // If times are significantly different, sync them
+                    if (Math.abs(normalVideo.currentTime - asciiVideo.currentTime) > 0.3) {
+                        asciiVideo.currentTime = normalVideo.currentTime;
+                    }
+                    
+                    // If either video has reached the end but hasn't looped, restart it
+                    if (normalVideo.currentTime > normalVideo.duration - 0.2) {
+                        normalVideo.currentTime = 0;
+                    }
+                    
+                    if (asciiVideo.currentTime > asciiVideo.duration - 0.2) {
+                        asciiVideo.currentTime = 0;
+                    }
+                    
+                    // iOS doesn't always respect the loop attribute
+                    if (normalVideo.ended) {
+                        normalVideo.currentTime = 0;
+                        normalVideo.play().catch(e => console.log('Error restarting normal video:', e));
+                    }
+                    
+                    if (asciiVideo.ended) {
+                        asciiVideo.currentTime = 0;
+                        asciiVideo.play().catch(e => console.log('Error restarting ASCII video:', e));
+                    }
+                }
+            }, 1000); // Check every second
         }
 
-        // Add lazy loading for videos using Intersection Observer API
+        // Add enhanced lazy loading for videos using Intersection Observer API
         function setupLazyLoading() {
             // Check if IntersectionObserver is supported
             if ('IntersectionObserver' in window) {
@@ -583,31 +671,39 @@
                 
                 const observer = new IntersectionObserver((entries) => {
                     entries.forEach(entry => {
+                        const videoItem = entry.target;
+                        const videos = videoItem.querySelectorAll('video');
+                        const normalVideo = videos[0];
+                        const asciiVideo = videos[1];
+                        
                         if (entry.isIntersecting) {
-                            const videoItem = entry.target;
-                            const videos = videoItem.querySelectorAll('video');
-                            const normalVideo = videos[0];
-                            const asciiVideo = videos[1];
+                            // Mark as visible
+                            normalVideo.dataset.visible = "true";
+                            asciiVideo.dataset.visible = "true";
                             
                             // If not already loaded and we haven't hit our concurrent limit
                             if (normalVideo.dataset.loaded !== "true" && loadedVideos < CONCURRENT_VIDEO_LOAD_LIMIT) {
-                                startVideoWithSynchronization(normalVideo, asciiVideo, 0);
+                                startVideoWithSynchronization(normalVideo, asciiVideo);
                                 loadedVideos++;
-                            }
-                            
-                            // Resume videos that are already loaded
-                            if (normalVideo.dataset.loaded === "true") {
-                                normalVideo.play().catch(e => console.log(e));
-                                asciiVideo.play().catch(e => console.log(e));
+                            } else if (normalVideo.dataset.loaded === "true") {
+                                // If already loaded, just play
+                                if (normalVideo.paused) {
+                                    normalVideo.play().catch(e => console.log('Error resuming normal video:', e));
+                                }
+                                if (asciiVideo.paused) {
+                                    asciiVideo.play().catch(e => console.log('Error resuming ASCII video:', e));
+                                }
                             }
                         } else {
+                            // Mark as not visible
+                            normalVideo.dataset.visible = "false";
+                            asciiVideo.dataset.visible = "false";
+                            
                             // Pause when not visible to save resources
-                            const videos = entry.target.querySelectorAll('video');
-                            videos.forEach(video => {
-                                if (video.dataset.loaded === "true") {
-                                    video.pause();
-                                }
-                            });
+                            if (normalVideo.dataset.loaded === "true") {
+                                normalVideo.pause();
+                                asciiVideo.pause();
+                            }
                         }
                     });
                 }, observerOptions);
@@ -621,27 +717,72 @@
                 document.querySelectorAll('.video-item').forEach((item, index) => {
                     const videos = item.querySelectorAll('video');
                     if (index < CONCURRENT_VIDEO_LOAD_LIMIT) {
-                        startVideoWithSynchronization(videos[0], videos[1], index);
+                        startVideoWithSynchronization(videos[0], videos[1]);
                         loadedVideos++;
                     }
                 });
             }
         }
+        
+        // Check video playback state every 5 seconds and ensure looping works
+        function setupVideoPlaybackMonitoring() {
+            setInterval(() => {
+                // Get all visible videos
+                const visibleVideos = Array.from(activeVideos).filter(video => 
+                    video.dataset.visible === "true" && video.dataset.loaded === "true");
+                
+                // Make sure they're all playing
+                visibleVideos.forEach(video => {
+                    if (video.paused || video.ended) {
+                        console.log("Restarting paused/ended video");
+                        video.currentTime = 0;
+                        video.play().catch(e => console.log('Error in playback monitoring:', e));
+                    }
+                });
+            }, 5000);
+        }
+
+        // Special iOS document event listeners to help with autoplay
+        function setupiOSVideoSupport() {
+            if (/iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream) {
+                // These events can help trigger playback on iOS
+                document.addEventListener('touchstart', initializeVideoPlayback, { once: true });
+                document.addEventListener('scroll', initializeVideoPlayback, { once: true });
+            }
+        }
+        
+        // Function to help initialize video playback on iOS
+        function initializeVideoPlayback() {
+            console.log("Initializing video playback from user interaction");
+            
+            // Get visible videos and try to play them
+            document.querySelectorAll('video').forEach(video => {
+                if (video.dataset.visible === "true") {
+                    video.play().catch(e => console.log('Error in init playback:', e));
+                }
+            });
+        }
 
         // Initial load
         window.addEventListener('DOMContentLoaded', () => {
+            // Header initialisieren - hier passiert der anfängliche Streckeffekt
             initHeader();
+            
+            // Videos erstellen
             createVideoGrid();
             setupLazyLoading();
+            setupVideoPlaybackMonitoring();
+            setupiOSVideoSupport();
             
-            // Add scroll event listener
+            // Scroll-Event hinzufügen - hierdurch wird der Stretcheffekt beim Scrollen angepasst
             window.addEventListener('scroll', handleScroll);
             
-            // Add resize event listener
+            // Resize-Event hinzufügen
             window.addEventListener('resize', handleResize);
             
-            // Run once to set initial state
-            handleScroll();
+            // Text nach einer gewissen Zeit erneut skalieren, um sicherzustellen, dass
+            // er korrekt von Rand zu Rand reicht
+            setTimeout(makeTextStretchEdgeToEdge, 500);
         });
     </script>
 </body>
